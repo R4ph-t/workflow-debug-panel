@@ -215,6 +215,12 @@ export function useWorkflowStream<TResult = unknown>({
       return
     }
 
+    // Skip if already finished
+    if (finishedRef.current) {
+      console.log('SSE skipped - workflow already finished')
+      return
+    }
+
     // Close any existing connection
     if (eventSourceRef.current) {
       eventSourceRef.current.close()
@@ -223,6 +229,7 @@ export function useWorkflowStream<TResult = unknown>({
 
     const currentTaskRunId = taskRunId
     const actualStreamUrl = buildUrl(streamUrlRef.current, currentTaskRunId)
+    console.log(`SSE: Creating new EventSource for ${currentTaskRunId}`)
     const eventSource = new EventSource(actualStreamUrl)
     eventSourceRef.current = eventSource
     const STATUS_POLL_INTERVAL_MS = 3000
@@ -568,11 +575,15 @@ export function useWorkflowStream<TResult = unknown>({
     })
 
     eventSource.addEventListener('error', (e) => {
-      if (doneLoggedRef.current || finishedRef.current) return
-      console.error('SSE error event:', e)
+      if (doneLoggedRef.current || finishedRef.current) {
+        console.log('SSE error event ignored - already finished')
+        return
+      }
+      // Note: Native error events don't have .data, only server-sent error events do
       try {
         const data = JSON.parse((e as MessageEvent).data || '{}')
         if (data.error) {
+          console.warn('SSE server error:', data.error)
           setLogs((prev) => {
             const time = new Date().toLocaleTimeString('en-US', {
               hour12: false,
@@ -584,38 +595,37 @@ export function useWorkflowStream<TResult = unknown>({
           })
           // Close EventSource to prevent auto-reconnect loop
           eventSource.close()
+          eventSourceRef.current = null
           // Fall back to polling
           fallbackToPoll()
         }
+        // If no error in data, this is just a connection event - let onerror handle it
       } catch {
-        // This is a connection error, not a server-sent error event
-        if (!connectedRef.current || !hasReceivedDataRef.current) {
-          setLogs((prev) => {
-            const time = new Date().toLocaleTimeString('en-US', {
-              hour12: false,
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-            })
-            return [{ time, message: 'SSE unavailable, using polling' }, ...prev].slice(0, 15)
-          })
-          eventSource.close()
-          fallbackToPoll()
-        }
+        // This is a native connection error, not a server-sent error event
+        // The onerror handler will also fire, so we let it handle the logic
+        console.log('SSE error event (native) - letting onerror handle it')
       }
     })
 
     eventSource.onerror = () => {
-      if (doneLoggedRef.current || finishedRef.current) return
-      console.warn('SSE connection error')
+      if (doneLoggedRef.current || finishedRef.current) {
+        console.log('SSE onerror ignored - already finished')
+        return
+      }
+      console.warn('SSE connection error, readyState:', eventSource.readyState)
       // Always close on error to prevent auto-reconnect loop
       eventSource.close()
+      eventSourceRef.current = null
       if (!connectedRef.current || !hasReceivedDataRef.current) {
+        console.log('SSE: Falling back to polling (never connected or no data)')
         fallbackToPoll()
+      } else {
+        console.log('SSE: Connection lost after receiving data, not retrying')
       }
     }
 
     return () => {
+      console.log('SSE: Cleanup running')
       eventSource.close()
       eventSourceRef.current = null
       stopStatusPolling()
