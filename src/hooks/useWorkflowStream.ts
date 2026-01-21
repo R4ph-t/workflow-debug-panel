@@ -200,8 +200,14 @@ export function useWorkflowStream<TResult = unknown>({
 
   // SSE connection - only depends on taskRunId and useMock
   useEffect(() => {
-    // Skip if mock mode, no taskRunId, or already finished
+    // Skip if mock mode or no taskRunId
     if (useMock || !taskRunId) {
+      return
+    }
+
+    // Skip if already connected to the same taskRunId
+    if (eventSourceRef.current && eventSourceRef.current.readyState !== EventSource.CLOSED) {
+      console.log('SSE already connected, skipping')
       return
     }
 
@@ -457,8 +463,13 @@ export function useWorkflowStream<TResult = unknown>({
             })
             return [{ time, message: `Error: ${data.error}`, type: 'error' as const }, ...prev].slice(0, 15)
           })
+          // Close EventSource to prevent auto-reconnect loop
+          eventSource.close()
+          // Fall back to polling
+          fallbackToPoll()
         }
       } catch {
+        // This is a connection error, not a server-sent error event
         if (!connectedRef.current) {
           setLogs((prev) => {
             const time = new Date().toLocaleTimeString('en-US', {
@@ -469,6 +480,7 @@ export function useWorkflowStream<TResult = unknown>({
             })
             return [{ time, message: 'SSE unavailable, using polling' }, ...prev].slice(0, 15)
           })
+          eventSource.close()
           fallbackToPoll()
         }
       }
@@ -477,8 +489,9 @@ export function useWorkflowStream<TResult = unknown>({
     eventSource.onerror = () => {
       if (doneLoggedRef.current || finishedRef.current) return
       console.warn('SSE connection error')
+      // Always close on error to prevent auto-reconnect loop
+      eventSource.close()
       if (!connectedRef.current) {
-        eventSource.close()
         fallbackToPoll()
       }
     }

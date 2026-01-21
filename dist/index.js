@@ -1,22 +1,22 @@
 import { jsxs as i, jsx as r, Fragment as ae } from "react/jsx-runtime";
-import { useState as w, useEffect as D, useRef as g, useCallback as ne } from "react";
+import { useState as x, useEffect as A, useRef as g, useCallback as ne } from "react";
 function oe(s) {
-  const [f, R] = w([]), [M, O] = w(null), [_, d] = w(!1), [P, G] = w(!0), [W, S] = w(!!s);
-  return D(() => {
+  const [f, R] = x([]), [M, O] = x(null), [_, u] = x(!1), [P, G] = x(!0), [W, N] = x(!!s);
+  return A(() => {
     if (!s) {
-      S(!1);
+      N(!1);
       return;
     }
     let j = !1;
     return (async () => {
       try {
-        const x = await fetch(s);
-        if (!x.ok)
+        const v = await fetch(s);
+        if (!v.ok)
           throw new Error("Failed to fetch status");
-        const h = await x.json();
-        j || (G(!0), d(h.workflow_configured ?? !1), O(h.workflow_slug ?? null), R(h.tasks ?? []), S(!1));
-      } catch (x) {
-        console.error("Failed to fetch workflow status:", x), j || (G(!1), d(!1), R([]), S(!1));
+        const h = await v.json();
+        j || (G(!0), u(h.workflow_configured ?? !1), O(h.workflow_slug ?? null), R(h.tasks ?? []), N(!1));
+      } catch (v) {
+        console.error("Failed to fetch workflow status:", v), j || (G(!1), u(!1), R([]), N(!1));
       }
     })(), () => {
       j = !0;
@@ -62,52 +62,56 @@ function ce({
   onComplete: M,
   onError: O,
   extractPath: _ = ie,
-  useMock: d = !1,
+  useMock: u = !1,
   mockTasks: P,
   mockLogs: G
 }) {
-  const W = P ?? le, S = G ?? se, [j, L] = w(d ? "running" : "idle"), [x, h] = w(d ? W : []), [H, u] = w(d ? S : []), [V, E] = w(0), [Y, $] = w(!1), [v, z] = w(!1), J = g(Date.now()), N = g(null), T = g(null), U = g(/* @__PURE__ */ new Set()), k = g(!1), K = g(!1), F = g(!1), y = g(!1), A = g(f), X = g(R), b = g(M), m = g(O), I = g(_);
-  D(() => {
-    A.current = f, X.current = R, b.current = M, m.current = O, I.current = _;
-  }), D(() => {
-    y.current = v;
-  }, [v]);
-  const q = !!s || d, B = ne((C, Q) => {
-    const p = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+  const W = P ?? le, N = G ?? se, [j, E] = x(u ? "running" : "idle"), [v, h] = x(u ? W : []), [H, p] = x(u ? N : []), [V, L] = x(0), [Y, $] = x(!1), [k, z] = x(!1), J = g(Date.now()), T = g(null), b = g(null), C = g(/* @__PURE__ */ new Set()), y = g(!1), K = g(!1), F = g(!1), S = g(!1), D = g(f), X = g(R), w = g(M), m = g(O), I = g(_);
+  A(() => {
+    D.current = f, X.current = R, w.current = M, m.current = O, I.current = _;
+  }), A(() => {
+    S.current = k;
+  }, [k]);
+  const q = !!s || u, B = ne((U, Q) => {
+    const d = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
       hour12: !1,
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit"
     });
-    u((t) => [{ time: p, message: C, type: Q }, ...t].slice(0, 15));
+    p((t) => [{ time: d, message: U, type: Q }, ...t].slice(0, 15));
   }, []);
-  return D(() => {
-    d && (L("running"), h(W), u(S), E(0), J.current = Date.now());
-  }, [d, W, S]), D(() => {
-    s && !d && (L("pending"), h([]), u([]), E(0), $(!1), z(!1), J.current = Date.now(), U.current = /* @__PURE__ */ new Set(), k.current = !1, K.current = !1, F.current = !1, y.current = !1);
-  }, [s, d]), D(() => {
+  return A(() => {
+    u && (E("running"), h(W), p(N), L(0), J.current = Date.now());
+  }, [u, W, N]), A(() => {
+    s && !u && (E("pending"), h([]), p([]), L(0), $(!1), z(!1), J.current = Date.now(), C.current = /* @__PURE__ */ new Set(), y.current = !1, K.current = !1, F.current = !1, S.current = !1);
+  }, [s, u]), A(() => {
     if (q)
-      return B("Workflow started"), N.current = setInterval(() => {
-        E(Math.floor((Date.now() - J.current) / 1e3));
+      return B("Workflow started"), T.current = setInterval(() => {
+        L(Math.floor((Date.now() - J.current) / 1e3));
       }, 1e3), () => {
-        N.current && clearInterval(N.current);
+        T.current && clearInterval(T.current);
       };
-  }, [q, B]), D(() => {
-    v && N.current && (clearInterval(N.current), N.current = null);
-  }, [v]), D(() => {
-    if (d || !s)
+  }, [q, B]), A(() => {
+    k && T.current && (clearInterval(T.current), T.current = null);
+  }, [k]), A(() => {
+    if (u || !s)
       return;
-    T.current && (T.current.close(), T.current = null);
-    const C = s, Q = ee(X.current, C), p = new EventSource(Q);
-    T.current = p;
+    if (b.current && b.current.readyState !== EventSource.CLOSED) {
+      console.log("SSE already connected, skipping");
+      return;
+    }
+    b.current && (b.current.close(), b.current = null);
+    const U = s, Q = ee(X.current, U), d = new EventSource(Q);
+    b.current = d;
     const t = async () => {
-      const a = ee(A.current, C), e = await fetch(a);
+      const a = ee(D.current, U), e = await fetch(a);
       if (!e.ok)
         throw new Error("Failed to fetch status");
       return e.json();
     }, n = () => {
-      if (!b.current || !m.current) return;
-      u((e) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+      if (!w.current || !m.current) return;
+      p((e) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
         hour12: !1,
         hour: "2-digit",
         minute: "2-digit",
@@ -115,15 +119,15 @@ function ce({
       }), message: "Using polling fallback" }, ...e].slice(0, 15));
       const a = async () => {
         var e, o;
-        if (!(F.current || y.current))
+        if (!(F.current || S.current))
           try {
             const l = await t();
-            if (L(l.status), l.tasks) {
+            if (E(l.status), l.tasks) {
               h(l.tasks);
               for (const c of l.tasks)
-                if (c.status === "completed" && !U.current.has(c.id) && (U.current.add(c.id), c.input)) {
+                if (c.status === "completed" && !C.current.has(c.id) && (C.current.add(c.id), c.input)) {
                   const Z = I.current(c.input);
-                  u((re) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+                  p((re) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
                     hour12: !1,
                     hour: "2-digit",
                     minute: "2-digit",
@@ -131,12 +135,12 @@ function ce({
                   }), message: `✓ ${Z}` }, ...re].slice(0, 15));
                 }
             }
-            l.status === "completed" && l.results ? (F.current = !0, z(!0), k.current = !0, u((c) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+            l.status === "completed" && l.results ? (F.current = !0, z(!0), y.current = !0, p((c) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
               hour12: !1,
               hour: "2-digit",
               minute: "2-digit",
               second: "2-digit"
-            }), message: "Workflow completed", type: "success" }, ...c].slice(0, 15)), (e = b.current) == null || e.call(b, l.results)) : l.status === "failed" ? (F.current = !0, z(!0), k.current = !0, u((c) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+            }), message: "Workflow completed", type: "success" }, ...c].slice(0, 15)), (e = w.current) == null || e.call(w, l.results)) : l.status === "failed" ? (F.current = !0, z(!0), y.current = !0, p((c) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
               hour12: !1,
               hour: "2-digit",
               minute: "2-digit",
@@ -148,23 +152,23 @@ function ce({
       };
       a();
     };
-    return p.addEventListener("connected", () => {
-      y.current || ($(!0), K.current = !0, u((a) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+    return d.addEventListener("connected", () => {
+      S.current || ($(!0), K.current = !0, p((a) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
         hour12: !1,
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit"
       }), message: "Connected to event stream" }, ...a].slice(0, 15)));
-    }), p.addEventListener("initial", (a) => {
-      if (!y.current)
+    }), d.addEventListener("initial", (a) => {
+      if (!S.current)
         try {
           const e = JSON.parse(a.data);
-          L(e.status), e.tasks && h(e.tasks);
+          E(e.status), e.tasks && h(e.tasks);
         } catch (e) {
           console.error("Error parsing initial event:", e);
         }
-    }), p.addEventListener("taskUpdate", (a) => {
-      if (!y.current)
+    }), d.addEventListener("taskUpdate", (a) => {
+      if (!S.current)
         try {
           const e = JSON.parse(a.data);
           if (h((o) => o.find((c) => c.id === e.id) ? o.map(
@@ -185,9 +189,9 @@ function ce({
               startedAt: e.startedAt,
               completedAt: e.completedAt
             }
-          ]), e.status === "completed" && !U.current.has(e.id) && (U.current.add(e.id), e.input)) {
+          ]), e.status === "completed" && !C.current.has(e.id) && (C.current.add(e.id), e.input)) {
             const o = I.current(e.input);
-            u((l) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+            p((l) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
               hour12: !1,
               hour: "2-digit",
               minute: "2-digit",
@@ -197,29 +201,29 @@ function ce({
         } catch (e) {
           console.error("Error parsing taskUpdate:", e);
         }
-    }), p.addEventListener("done", async (a) => {
-      k.current = !0, z(!0);
+    }), d.addEventListener("done", async (a) => {
+      y.current = !0, z(!0);
       try {
         const e = JSON.parse(a.data);
-        L(e.status);
+        E(e.status);
         try {
           const o = await t();
           o.tasks && h(o.tasks);
         } catch {
           console.warn("Could not fetch final task statuses");
         }
-        if (e.status === "completed" && e.results && b.current) {
+        if (e.status === "completed" && e.results && w.current) {
           const o = Array.isArray(e.results) ? e.results[0] : e.results;
-          u((l) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+          p((l) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
             hour12: !1,
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit"
           }), message: "Workflow completed", type: "success" }, ...l].slice(0, 15)), setTimeout(() => {
             var l;
-            return (l = b.current) == null ? void 0 : l.call(b, o);
+            return (l = w.current) == null ? void 0 : l.call(w, o);
           }, 300);
-        } else e.status === "failed" && m.current && (u((o) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+        } else e.status === "failed" && m.current && (p((o) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
           hour12: !1,
           hour: "2-digit",
           minute: "2-digit",
@@ -228,39 +232,39 @@ function ce({
       } catch (e) {
         console.error("Error parsing done event:", e);
       }
-      p.close();
-    }), p.addEventListener("error", (a) => {
-      if (!(k.current || y.current)) {
+      d.close();
+    }), d.addEventListener("error", (a) => {
+      if (!(y.current || S.current)) {
         console.error("SSE error event:", a);
         try {
           const e = JSON.parse(a.data || "{}");
-          e.error && u((o) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+          e.error && (p((o) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
             hour12: !1,
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit"
-          }), message: `Error: ${e.error}`, type: "error" }, ...o].slice(0, 15));
+          }), message: `Error: ${e.error}`, type: "error" }, ...o].slice(0, 15)), d.close(), n());
         } catch {
-          K.current || (u((e) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+          K.current || (p((e) => [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
             hour12: !1,
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit"
-          }), message: "SSE unavailable, using polling" }, ...e].slice(0, 15)), n());
+          }), message: "SSE unavailable, using polling" }, ...e].slice(0, 15)), d.close(), n());
         }
       }
-    }), p.onerror = () => {
-      k.current || y.current || (console.warn("SSE connection error"), K.current || (p.close(), n()));
+    }), d.onerror = () => {
+      y.current || S.current || (console.warn("SSE connection error"), d.close(), K.current || n());
     }, () => {
-      p.close(), T.current = null;
+      d.close(), b.current = null;
     };
-  }, [s, d]), {
+  }, [s, u]), {
     status: j,
-    tasks: x,
+    tasks: v,
     logs: H,
     elapsed: V,
     connected: Y,
-    finished: v,
+    finished: k,
     addLog: B
   };
 }
@@ -279,47 +283,47 @@ function fe({
   streamUrl: M,
   title: O = "Workflow Debug",
   displayName: _,
-  taskDefinitions: d,
+  taskDefinitions: u,
   taskDescriptions: P = {},
   workflowSlug: G,
   workflowConfigured: W,
-  apiReachable: S,
+  apiReachable: N,
   onComplete: j,
-  onError: L,
-  collapsed: x = !1,
+  onError: E,
+  collapsed: v = !1,
   onToggle: h,
   useMock: H = !1,
-  mockTasks: u,
+  mockTasks: p,
   mockLogs: V
 }) {
-  const E = g(null), Y = g(Date.now()), $ = oe(H ? void 0 : f), v = d ?? $.tasks, z = G ?? $.workflowSlug, J = W ?? $.workflowConfigured, N = S ?? $.apiReachable, T = (t) => {
+  const L = g(null), Y = g(Date.now()), $ = oe(H ? void 0 : f), k = u ?? $.tasks, z = G ?? $.workflowSlug, J = W ?? $.workflowConfigured, T = N ?? $.apiReachable, b = (t) => {
     try {
       return new URL(t).pathname || "/";
     } catch {
       return t;
     }
-  }, { status: U, tasks: k, logs: K, elapsed: F, finished: y } = ce({
+  }, { status: C, tasks: y, logs: K, elapsed: F, finished: S } = ce({
     taskRunId: s,
     statusUrl: R,
     streamUrl: M,
     onComplete: j,
-    onError: L,
-    extractPath: T,
+    onError: E,
+    extractPath: b,
     useMock: H,
-    mockTasks: u,
+    mockTasks: p,
     mockLogs: V
-  }), A = !!s || H;
-  D(() => {
-    E.current && k.length > 0 && (E.current.scrollTop = E.current.scrollHeight);
-  }, [k]);
+  }), D = !!s || H;
+  A(() => {
+    L.current && y.length > 0 && (L.current.scrollTop = L.current.scrollHeight);
+  }, [y]);
   const X = (t) => {
     const n = Math.floor(t / 60), a = t % 60;
     return `${n}:${a.toString().padStart(2, "0")}`;
-  }, b = (t) => {
+  }, w = (t) => {
     if (!t.startedAt) return null;
     const n = new Date(t.startedAt).getTime(), e = (t.completedAt ? new Date(t.completedAt).getTime() : Date.now()) - n;
     return e < 1e3 ? `${e}ms` : `${(e / 1e3).toFixed(1)}s`;
-  }, m = [...k].sort((t, n) => {
+  }, m = [...y].sort((t, n) => {
     const a = t.startedAt ? new Date(t.startedAt).getTime() : Number.MAX_SAFE_INTEGER, e = n.startedAt ? new Date(n.startedAt).getTime() : Number.MAX_SAFE_INTEGER;
     return a - e;
   }), I = (() => {
@@ -346,7 +350,7 @@ function fe({
       width: `${Math.max(1, Math.min(100 - e, o))}%`
     };
   }, B = {};
-  for (const t of v) {
+  for (const t of k) {
     const n = m.filter((a) => a.task_id === t);
     B[t] = {
       total: n.length,
@@ -354,20 +358,20 @@ function fe({
       running: n.filter((a) => a.status === "running").length
     };
   }
-  const C = m.filter((t) => t.status === "failed"), p = N ? J ? A ? y ? U === "completed" ? { text: "Completed", color: "bg-emerald-500" } : { text: "Failed", color: "bg-red-500" } : { text: U.toUpperCase(), color: "bg-emerald-500 animate-pulse" } : { text: "Ready", color: "bg-emerald-500" } : { text: "Not configured", color: "bg-yellow-500" } : { text: "API unreachable", color: "bg-red-500" };
+  const U = m.filter((t) => t.status === "failed"), d = T ? J ? D ? S ? C === "completed" ? { text: "Completed", color: "bg-emerald-500" } : { text: "Failed", color: "bg-red-500" } : { text: C.toUpperCase(), color: "bg-emerald-500 animate-pulse" } : { text: "Ready", color: "bg-emerald-500" } : { text: "Not configured", color: "bg-yellow-500" } : { text: "API unreachable", color: "bg-red-500" };
   return /* @__PURE__ */ i("div", { className: "border border-neutral-700", children: [
     /* @__PURE__ */ i(
       "button",
       {
         type: "button",
         onClick: h,
-        className: `w-full px-3 py-2 flex justify-between items-center text-xs hover:bg-neutral-900/50 transition-colors ${x ? "" : "border-b border-neutral-700"}`,
+        className: `w-full px-3 py-2 flex justify-between items-center text-xs hover:bg-neutral-900/50 transition-colors ${v ? "" : "border-b border-neutral-700"}`,
         children: [
           /* @__PURE__ */ i("div", { className: "flex items-center gap-2", children: [
             /* @__PURE__ */ r(
               "svg",
               {
-                className: `w-3 h-3 text-neutral-500 transition-transform ${x ? "-rotate-90" : ""}`,
+                className: `w-3 h-3 text-neutral-500 transition-transform ${v ? "-rotate-90" : ""}`,
                 fill: "none",
                 viewBox: "0 0 24 24",
                 stroke: "currentColor",
@@ -380,28 +384,28 @@ function fe({
           ] }),
           /* @__PURE__ */ i("div", { className: "flex items-center gap-3", children: [
             /* @__PURE__ */ i("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ r("div", { className: `w-1.5 h-1.5 rounded-full ${p.color}` }),
-              /* @__PURE__ */ r("span", { className: "text-neutral-500", children: p.text })
+              /* @__PURE__ */ r("div", { className: `w-1.5 h-1.5 rounded-full ${d.color}` }),
+              /* @__PURE__ */ r("span", { className: "text-neutral-500", children: d.text })
             ] }),
-            A && /* @__PURE__ */ r("span", { className: "font-mono text-neutral-500", children: X(F) })
+            D && /* @__PURE__ */ r("span", { className: "font-mono text-neutral-500", children: X(F) })
           ] })
         ]
       }
     ),
-    !x && /* @__PURE__ */ i(ae, { children: [
+    !v && /* @__PURE__ */ i(ae, { children: [
       /* @__PURE__ */ i("div", { className: "border-b border-neutral-700 px-3 py-2", children: [
         /* @__PURE__ */ r("div", { className: "text-[10px] text-neutral-600 uppercase tracking-wider mb-1.5", children: "Discovered Tasks" }),
-        N ? J ? v.length === 0 ? /* @__PURE__ */ i("div", { className: "text-xs text-yellow-400", children: [
+        T ? J ? k.length === 0 ? /* @__PURE__ */ i("div", { className: "text-xs text-yellow-400", children: [
           /* @__PURE__ */ i("p", { className: "mb-1", children: [
             "No tasks found",
             z ? ` for "${z}"` : ""
           ] }),
           /* @__PURE__ */ r("p", { className: "text-neutral-500 text-[10px]", children: "Deploy the workflow service first." })
-        ] }) : /* @__PURE__ */ r("div", { className: "flex flex-wrap gap-x-4 gap-y-1 text-xs", children: v.map((t) => {
+        ] }) : /* @__PURE__ */ r("div", { className: "flex flex-wrap gap-x-4 gap-y-1 text-xs", children: k.map((t) => {
           const n = B[t];
           return /* @__PURE__ */ i("div", { className: "flex items-center gap-1.5", children: [
             /* @__PURE__ */ r("span", { className: "font-mono text-neutral-300", children: t }),
-            A && n && /* @__PURE__ */ i("span", { className: "text-neutral-600", children: [
+            D && n && /* @__PURE__ */ i("span", { className: "text-neutral-600", children: [
               "(",
               n.total,
               ")",
@@ -426,34 +430,34 @@ function fe({
           /* @__PURE__ */ r("p", { className: "text-neutral-500 text-[10px]", children: "Check that the backend is deployed and API URL is set." })
         ] })
       ] }),
-      A && C.length > 0 && /* @__PURE__ */ i("div", { className: "border-b border-neutral-700 px-3 py-2 bg-red-950/20", children: [
+      D && U.length > 0 && /* @__PURE__ */ i("div", { className: "border-b border-neutral-700 px-3 py-2 bg-red-950/20", children: [
         /* @__PURE__ */ i("div", { className: "text-[10px] text-red-500 uppercase tracking-wider mb-1.5", children: [
           "Errors (",
-          C.length,
+          U.length,
           ")"
         ] }),
-        /* @__PURE__ */ r("div", { className: "space-y-1", children: C.slice(0, 3).map((t) => /* @__PURE__ */ i("div", { className: "text-xs", children: [
+        /* @__PURE__ */ r("div", { className: "space-y-1", children: U.slice(0, 3).map((t) => /* @__PURE__ */ i("div", { className: "text-xs", children: [
           /* @__PURE__ */ r("span", { className: "text-red-500", children: "⚠" }),
           " ",
           /* @__PURE__ */ r("span", { className: "font-mono text-neutral-400", children: t.task_id }),
-          t.input && /* @__PURE__ */ r("span", { className: "text-neutral-500 ml-2 font-mono", children: T(t.input) })
+          t.input && /* @__PURE__ */ r("span", { className: "text-neutral-500 ml-2 font-mono", children: b(t.input) })
         ] }, t.id)) })
       ] }),
-      A && /* @__PURE__ */ i("div", { ref: E, className: "border-b border-neutral-700 max-h-56 overflow-y-auto", children: [
+      D && /* @__PURE__ */ i("div", { ref: L, className: "border-b border-neutral-700 max-h-56 overflow-y-auto", children: [
         /* @__PURE__ */ r("div", { className: "text-[10px] text-neutral-600 uppercase tracking-wider px-3 py-1.5 border-b border-neutral-800", children: "Timeline" }),
         m.length === 0 && /* @__PURE__ */ i("div", { className: "p-3 flex items-center gap-2 text-xs text-neutral-400", children: [
           /* @__PURE__ */ r("div", { className: "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" }),
           /* @__PURE__ */ r("span", { children: "Starting workflow..." })
         ] }),
         m.map((t) => {
-          const n = q(t), a = b(t), e = t.status === "running", o = t.status === "completed", l = t.status === "failed";
+          const n = q(t), a = w(t), e = t.status === "running", o = t.status === "completed", l = t.status === "failed";
           return /* @__PURE__ */ i(
             "div",
             {
               className: "flex items-center px-2 py-0 hover:bg-neutral-900/30 text-xs",
               children: [
                 /* @__PURE__ */ r("span", { className: "shrink-0 w-4", children: o ? /* @__PURE__ */ r("span", { className: "text-emerald-500", children: "✓" }) : l ? /* @__PURE__ */ r("span", { className: "text-red-500", children: "✗" }) : e ? /* @__PURE__ */ r("span", { className: "inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" }) : /* @__PURE__ */ r("span", { className: "inline-block w-1.5 h-1.5 border border-neutral-600 rounded-full" }) }),
-                /* @__PURE__ */ r("span", { className: "shrink-0 w-28 font-mono text-neutral-400 truncate", children: _ && t.task_id === v[0] ? _ : t.input ? T(t.input) : t.task_id || t.id || "-" }),
+                /* @__PURE__ */ r("span", { className: "shrink-0 w-28 font-mono text-neutral-400 truncate", children: _ && t.task_id === k[0] ? _ : t.input ? b(t.input) : t.task_id || t.id || "-" }),
                 /* @__PURE__ */ r("span", { className: "shrink-0 w-16 font-mono text-neutral-500 text-right mr-3", children: a || (e ? "…" : "") }),
                 /* @__PURE__ */ r("div", { className: "flex-1 self-stretch py-px", children: /* @__PURE__ */ r("div", { className: "relative h-full bg-neutral-800/30", children: /* @__PURE__ */ r(
                   "div",
@@ -468,7 +472,7 @@ function fe({
           );
         })
       ] }),
-      A && /* @__PURE__ */ i("div", { className: "px-3 py-2 max-h-20 overflow-y-auto", children: [
+      D && /* @__PURE__ */ i("div", { className: "px-3 py-2 max-h-20 overflow-y-auto", children: [
         /* @__PURE__ */ r("div", { className: "text-[10px] text-neutral-600 uppercase tracking-wider mb-1", children: "Log" }),
         /* @__PURE__ */ r("div", { className: "space-y-0", children: K.slice(0, 5).map((t) => /* @__PURE__ */ i(
           "div",
