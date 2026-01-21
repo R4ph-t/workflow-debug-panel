@@ -72,6 +72,13 @@ const DEFAULT_MOCK_LOGS: LogEntry[] = [
 ]
 
 /**
+ * Build actual URL from template
+ */
+const buildUrl = (template: string, id: string): string => {
+  return template.replace('{taskRunId}', id)
+}
+
+/**
  * Hook for managing SSE connection and polling fallback for Render Workflows
  */
 export function useWorkflowStream<TResult = unknown>({
@@ -126,13 +133,6 @@ export function useWorkflowStream<TResult = unknown>({
   }, [finished])
 
   const isRunning = !!taskRunId || useMock
-
-  /**
-   * Build actual URL from template
-   */
-  const buildUrl = (template: string, id: string): string => {
-    return template.replace('{taskRunId}', id)
-  }
 
   /**
    * Add a log entry
