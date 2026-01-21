@@ -413,6 +413,7 @@ export function useWorkflowStream<TResult = unknown>({
 
     eventSource.addEventListener('connected', () => {
       if (finishedRef.current) return
+      if (connectedRef.current) return
       setConnected(true)
       connectedRef.current = true
       // If we connect but never receive any data, fall back to polling.
