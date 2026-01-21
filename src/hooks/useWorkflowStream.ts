@@ -341,6 +341,13 @@ export function useWorkflowStream<TResult = unknown>({
         if (data.tasks) {
           setTasks(data.tasks)
         }
+        // If already completed/failed, close immediately to prevent reconnect loop
+        if (data.status === 'completed' || data.status === 'failed') {
+          eventSource.close()
+          finishedRef.current = true
+          doneLoggedRef.current = true
+          setFinished(true)
+        }
       } catch (err) {
         console.error('Error parsing initial event:', err)
       }
@@ -400,7 +407,10 @@ export function useWorkflowStream<TResult = unknown>({
     })
 
     eventSource.addEventListener('done', async (e) => {
+      // Close IMMEDIATELY to prevent auto-reconnect before async processing
+      eventSource.close()
       doneLoggedRef.current = true
+      finishedRef.current = true
       setFinished(true)
 
       try {
@@ -444,8 +454,6 @@ export function useWorkflowStream<TResult = unknown>({
       } catch (err) {
         console.error('Error parsing done event:', err)
       }
-
-      eventSource.close()
     })
 
     eventSource.addEventListener('error', (e) => {
