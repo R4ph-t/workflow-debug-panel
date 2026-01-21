@@ -102,31 +102,37 @@ export function useWorkflowStream<TResult = unknown>({
   const doneLoggedRef = useRef(false)
   const connectedRef = useRef(false)
   const stopPollingRef = useRef(false)
+  const finishedRef = useRef(false)
 
-  // Store callbacks in refs to avoid re-triggering effects
+  // Store all props in refs to avoid effect dependencies
+  const statusUrlRef = useRef(statusUrl)
+  const streamUrlRef = useRef(streamUrl)
   const onCompleteRef = useRef(onComplete)
   const onErrorRef = useRef(onError)
   const extractPathRef = useRef(extractPath)
 
   // Keep refs up to date
   useEffect(() => {
+    statusUrlRef.current = statusUrl
+    streamUrlRef.current = streamUrl
     onCompleteRef.current = onComplete
     onErrorRef.current = onError
     extractPathRef.current = extractPath
-  }, [onComplete, onError, extractPath])
+  })
+
+  // Keep finishedRef in sync
+  useEffect(() => {
+    finishedRef.current = finished
+  }, [finished])
 
   const isRunning = !!taskRunId || useMock
 
   /**
    * Build actual URL from template
    */
-  const buildUrl = useCallback(
-    (template: string): string => {
-      if (!taskRunId) return template
-      return template.replace('{taskRunId}', taskRunId)
-    },
-    [taskRunId]
-  )
+  const buildUrl = (template: string, id: string): string => {
+    return template.replace('{taskRunId}', id)
+  }
 
   /**
    * Add a log entry
@@ -140,67 +146,6 @@ export function useWorkflowStream<TResult = unknown>({
     })
     setLogs((prev) => [{ time, message, type }, ...prev].slice(0, 15))
   }, [])
-
-  /**
-   * Fetch status from API
-   */
-  const fetchStatus = useCallback(async (): Promise<StatusResponse<TResult>> => {
-    const response = await fetch(buildUrl(statusUrl))
-    if (!response.ok) {
-      throw new Error('Failed to fetch status')
-    }
-    return response.json()
-  }, [buildUrl, statusUrl])
-
-  /**
-   * Fallback to polling when SSE fails
-   */
-  const fallbackToPoll = useCallback(() => {
-    if (!taskRunId || !onCompleteRef.current || !onErrorRef.current) return
-    addLog('Using polling fallback')
-
-    const poll = async () => {
-      if (stopPollingRef.current) return
-
-      try {
-        const data = await fetchStatus()
-        setStatus(data.status)
-
-        if (data.tasks) {
-          setTasks(data.tasks)
-          for (const t of data.tasks) {
-            if (t.status === 'completed' && !completedTasksRef.current.has(t.id)) {
-              completedTasksRef.current.add(t.id)
-              if (t.input) {
-                addLog(`✓ ${extractPathRef.current(t.input)}`)
-              }
-            }
-          }
-        }
-
-        if (data.status === 'completed' && data.results) {
-          stopPollingRef.current = true
-          setFinished(true)
-          doneLoggedRef.current = true
-          addLog('Workflow completed', 'success')
-          onCompleteRef.current?.(data.results as TResult)
-        } else if (data.status === 'failed') {
-          stopPollingRef.current = true
-          setFinished(true)
-          doneLoggedRef.current = true
-          addLog('Workflow failed', 'error')
-          onErrorRef.current?.('Workflow execution failed')
-        } else {
-          setTimeout(poll, 2000)
-        }
-      } catch (err) {
-        console.error('Polling error:', err)
-        setTimeout(poll, 2000)
-      }
-    }
-
-    poll()
-  }, [taskRunId, addLog, fetchStatus])
 
   // Set mock data when mock mode is enabled
   useEffect(() => {
@@ -225,7 +170,9 @@ export function useWorkflowStream<TResult = unknown>({
       startTime.current = Date.now()
       completedTasksRef.current = new Set()
       doneLoggedRef.current = false
+      connectedRef.current = false
       stopPollingRef.current = false
+      finishedRef.current = false
     }
   }, [taskRunId, useMock])
 
@@ -251,23 +198,137 @@ export function useWorkflowStream<TResult = unknown>({
     }
   }, [finished])
 
-  // SSE connection - only when running (skip in mock mode)
+  // SSE connection - only depends on taskRunId and useMock
   useEffect(() => {
-    if (!isRunning || !taskRunId || finished || useMock) {
-      eventSourceRef.current?.close()
+    // Skip if mock mode, no taskRunId, or already finished
+    if (useMock || !taskRunId) {
       return
     }
 
-    const eventSource = new EventSource(buildUrl(streamUrl))
+    // Close any existing connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+    }
+
+    const currentTaskRunId = taskRunId
+    const actualStreamUrl = buildUrl(streamUrlRef.current, currentTaskRunId)
+    const eventSource = new EventSource(actualStreamUrl)
     eventSourceRef.current = eventSource
 
+    /**
+     * Fetch status from API (defined inside effect to use current refs)
+     */
+    const fetchStatus = async (): Promise<StatusResponse<TResult>> => {
+      const url = buildUrl(statusUrlRef.current, currentTaskRunId)
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error('Failed to fetch status')
+      }
+      return response.json()
+    }
+
+    /**
+     * Fallback to polling when SSE fails
+     */
+    const fallbackToPoll = () => {
+      if (!onCompleteRef.current || !onErrorRef.current) return
+      
+      setLogs((prev) => {
+        const time = new Date().toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+        return [{ time, message: 'Using polling fallback' }, ...prev].slice(0, 15)
+      })
+
+      const poll = async () => {
+        if (stopPollingRef.current || finishedRef.current) return
+
+        try {
+          const data = await fetchStatus()
+          setStatus(data.status)
+
+          if (data.tasks) {
+            setTasks(data.tasks)
+            for (const t of data.tasks) {
+              if (t.status === 'completed' && !completedTasksRef.current.has(t.id)) {
+                completedTasksRef.current.add(t.id)
+                if (t.input) {
+                  const path = extractPathRef.current(t.input)
+                  setLogs((prev) => {
+                    const time = new Date().toLocaleTimeString('en-US', {
+                      hour12: false,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })
+                    return [{ time, message: `✓ ${path}` }, ...prev].slice(0, 15)
+                  })
+                }
+              }
+            }
+          }
+
+          if (data.status === 'completed' && data.results) {
+            stopPollingRef.current = true
+            setFinished(true)
+            doneLoggedRef.current = true
+            setLogs((prev) => {
+              const time = new Date().toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })
+              return [{ time, message: 'Workflow completed', type: 'success' as const }, ...prev].slice(0, 15)
+            })
+            onCompleteRef.current?.(data.results as TResult)
+          } else if (data.status === 'failed') {
+            stopPollingRef.current = true
+            setFinished(true)
+            doneLoggedRef.current = true
+            setLogs((prev) => {
+              const time = new Date().toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })
+              return [{ time, message: 'Workflow failed', type: 'error' as const }, ...prev].slice(0, 15)
+            })
+            onErrorRef.current?.('Workflow execution failed')
+          } else {
+            setTimeout(poll, 2000)
+          }
+        } catch (err) {
+          console.error('Polling error:', err)
+          setTimeout(poll, 2000)
+        }
+      }
+
+      poll()
+    }
+
     eventSource.addEventListener('connected', () => {
+      if (finishedRef.current) return
       setConnected(true)
       connectedRef.current = true
-      addLog('Connected to event stream')
+      setLogs((prev) => {
+        const time = new Date().toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+        return [{ time, message: 'Connected to event stream' }, ...prev].slice(0, 15)
+      })
     })
 
     eventSource.addEventListener('initial', (e) => {
+      if (finishedRef.current) return
       try {
         const data: SSEInitialEvent = JSON.parse(e.data)
         setStatus(data.status)
@@ -280,6 +341,7 @@ export function useWorkflowStream<TResult = unknown>({
     })
 
     eventSource.addEventListener('taskUpdate', (e) => {
+      if (finishedRef.current) return
       try {
         const event: SSETaskUpdateEvent = JSON.parse(e.data)
         setTasks((prev) => {
@@ -314,7 +376,16 @@ export function useWorkflowStream<TResult = unknown>({
         if (event.status === 'completed' && !completedTasksRef.current.has(event.id)) {
           completedTasksRef.current.add(event.id)
           if (event.input) {
-            addLog(`✓ ${extractPathRef.current(event.input)}`)
+            const path = extractPathRef.current(event.input)
+            setLogs((prev) => {
+              const time = new Date().toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })
+              return [{ time, message: `✓ ${path}` }, ...prev].slice(0, 15)
+            })
           }
         }
       } catch (err) {
@@ -342,10 +413,26 @@ export function useWorkflowStream<TResult = unknown>({
 
         if (data.status === 'completed' && data.results && onCompleteRef.current) {
           const results = Array.isArray(data.results) ? data.results[0] : data.results
-          addLog('Workflow completed', 'success')
+          setLogs((prev) => {
+            const time = new Date().toLocaleTimeString('en-US', {
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
+            return [{ time, message: 'Workflow completed', type: 'success' as const }, ...prev].slice(0, 15)
+          })
           setTimeout(() => onCompleteRef.current?.(results as TResult), 300)
         } else if (data.status === 'failed' && onErrorRef.current) {
-          addLog('Workflow failed', 'error')
+          setLogs((prev) => {
+            const time = new Date().toLocaleTimeString('en-US', {
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
+            return [{ time, message: 'Workflow failed', type: 'error' as const }, ...prev].slice(0, 15)
+          })
           onErrorRef.current('Workflow execution failed')
         }
       } catch (err) {
@@ -356,23 +443,39 @@ export function useWorkflowStream<TResult = unknown>({
     })
 
     eventSource.addEventListener('error', (e) => {
-      if (doneLoggedRef.current || finished) return
+      if (doneLoggedRef.current || finishedRef.current) return
       console.error('SSE error event:', e)
       try {
         const data = JSON.parse((e as MessageEvent).data || '{}')
         if (data.error) {
-          addLog(`Error: ${data.error}`, 'error')
+          setLogs((prev) => {
+            const time = new Date().toLocaleTimeString('en-US', {
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
+            return [{ time, message: `Error: ${data.error}`, type: 'error' as const }, ...prev].slice(0, 15)
+          })
         }
       } catch {
         if (!connectedRef.current) {
-          addLog('SSE unavailable, using polling')
+          setLogs((prev) => {
+            const time = new Date().toLocaleTimeString('en-US', {
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
+            return [{ time, message: 'SSE unavailable, using polling' }, ...prev].slice(0, 15)
+          })
           fallbackToPoll()
         }
       }
     })
 
     eventSource.onerror = () => {
-      if (doneLoggedRef.current || finished) return
+      if (doneLoggedRef.current || finishedRef.current) return
       console.warn('SSE connection error')
       if (!connectedRef.current) {
         eventSource.close()
@@ -382,18 +485,9 @@ export function useWorkflowStream<TResult = unknown>({
 
     return () => {
       eventSource.close()
+      eventSourceRef.current = null
     }
-  }, [
-    isRunning,
-    taskRunId,
-    buildUrl,
-    streamUrl,
-    addLog,
-    fallbackToPoll,
-    finished,
-    fetchStatus,
-    useMock,
-  ])
+  }, [taskRunId, useMock]) // Only depend on taskRunId and useMock
 
   return {
     status,
