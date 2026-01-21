@@ -4,10 +4,23 @@ A reusable React component for debugging [Render Workflows](https://render.com/d
 
 Provides real-time task monitoring with SSE streaming and polling fallback, timeline visualization, and log display.
 
+## Features
+
+- Real-time task monitoring via SSE with polling fallback
+- Timeline visualization with task durations
+- Self-contained CSS (no Tailwind configuration required)
+- Mock mode for local development
+- TypeScript support
+
 ## Requirements
 
 - React 18 or 19
-- Tailwind CSS configured in your project
+
+## Installation
+
+```bash
+npm install github:render-examples/workflow-debug-panel
+```
 
 ## Usage
 
@@ -131,9 +144,14 @@ function CustomDebugPanel() {
 # Install dependencies
 npm install
 
+# Run dev preview with mock data
+npm run dev
+
 # Build the library
 npm run build
 ```
+
+The dev preview lets you test different component states (ready, running, not configured, API unreachable) with mock data.
 
 ## License
 
