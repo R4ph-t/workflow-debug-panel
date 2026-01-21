@@ -4,12 +4,6 @@ A reusable React component for debugging [Render Workflows](https://render.com/d
 
 Provides real-time task monitoring with SSE streaming and polling fallback, timeline visualization, and log display.
 
-## Installation
-
-```bash
-npm install github:render-examples/workflow-debug-panel
-```
-
 ## Requirements
 
 - React 18 or 19
