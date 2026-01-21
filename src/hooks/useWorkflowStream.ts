@@ -185,9 +185,20 @@ export function useWorkflowStream<TResult = unknown>({
     poll()
   }, [taskRunId, addLog, extractPath, onComplete, onError, fetchStatus])
 
-  // Reset state when taskRunId changes
+  // Set mock data when mock mode is enabled
   useEffect(() => {
-    if (taskRunId) {
+    if (useMock) {
+      setStatus('running')
+      setTasks(effectiveMockTasks)
+      setLogs(effectiveMockLogs)
+      setElapsed(0)
+      startTime.current = Date.now()
+    }
+  }, [useMock, effectiveMockTasks, effectiveMockLogs])
+
+  // Reset state when taskRunId changes (skip in mock mode)
+  useEffect(() => {
+    if (taskRunId && !useMock) {
       setStatus('pending')
       setTasks([])
       setLogs([])
@@ -199,7 +210,7 @@ export function useWorkflowStream<TResult = unknown>({
       doneLoggedRef.current = false
       stopPollingRef.current = false
     }
-  }, [taskRunId])
+  }, [taskRunId, useMock])
 
   // Timer - only when running
   useEffect(() => {
@@ -223,9 +234,9 @@ export function useWorkflowStream<TResult = unknown>({
     }
   }, [finished])
 
-  // SSE connection - only when running
+  // SSE connection - only when running (skip in mock mode)
   useEffect(() => {
-    if (!isRunning || !taskRunId || finished) {
+    if (!isRunning || !taskRunId || finished || useMock) {
       eventSourceRef.current?.close()
       return
     }
@@ -367,6 +378,7 @@ export function useWorkflowStream<TResult = unknown>({
     fallbackToPoll,
     finished,
     fetchStatus,
+    useMock,
   ])
 
   return {
