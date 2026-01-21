@@ -32,6 +32,17 @@ interface UseWorkflowStreamResult {
 }
 
 /**
+ * Default extractPath function
+ */
+const defaultExtractPath = (input: string): string => {
+  try {
+    return new URL(input).pathname || '/'
+  } catch {
+    return input
+  }
+}
+
+/**
  * Default mock tasks for development
  */
 const DEFAULT_MOCK_TASKS: TaskRun[] = [
@@ -69,13 +80,7 @@ export function useWorkflowStream<TResult = unknown>({
   streamUrl,
   onComplete,
   onError,
-  extractPath = (input) => {
-    try {
-      return new URL(input).pathname || '/'
-    } catch {
-      return input
-    }
-  },
+  extractPath = defaultExtractPath,
   useMock = false,
   mockTasks,
   mockLogs,
@@ -97,6 +102,18 @@ export function useWorkflowStream<TResult = unknown>({
   const doneLoggedRef = useRef(false)
   const connectedRef = useRef(false)
   const stopPollingRef = useRef(false)
+
+  // Store callbacks in refs to avoid re-triggering effects
+  const onCompleteRef = useRef(onComplete)
+  const onErrorRef = useRef(onError)
+  const extractPathRef = useRef(extractPath)
+
+  // Keep refs up to date
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+    onErrorRef.current = onError
+    extractPathRef.current = extractPath
+  }, [onComplete, onError, extractPath])
 
   const isRunning = !!taskRunId || useMock
 
@@ -139,7 +156,7 @@ export function useWorkflowStream<TResult = unknown>({
    * Fallback to polling when SSE fails
    */
   const fallbackToPoll = useCallback(() => {
-    if (!taskRunId || !onComplete || !onError) return
+    if (!taskRunId || !onCompleteRef.current || !onErrorRef.current) return
     addLog('Using polling fallback')
 
     const poll = async () => {
@@ -155,7 +172,7 @@ export function useWorkflowStream<TResult = unknown>({
             if (t.status === 'completed' && !completedTasksRef.current.has(t.id)) {
               completedTasksRef.current.add(t.id)
               if (t.input) {
-                addLog(`✓ ${extractPath(t.input)}`)
+                addLog(`✓ ${extractPathRef.current(t.input)}`)
               }
             }
           }
@@ -166,13 +183,13 @@ export function useWorkflowStream<TResult = unknown>({
           setFinished(true)
           doneLoggedRef.current = true
           addLog('Workflow completed', 'success')
-          onComplete(data.results as TResult)
+          onCompleteRef.current?.(data.results as TResult)
         } else if (data.status === 'failed') {
           stopPollingRef.current = true
           setFinished(true)
           doneLoggedRef.current = true
           addLog('Workflow failed', 'error')
-          onError('Workflow execution failed')
+          onErrorRef.current?.('Workflow execution failed')
         } else {
           setTimeout(poll, 2000)
         }
@@ -183,7 +200,7 @@ export function useWorkflowStream<TResult = unknown>({
     }
 
     poll()
-  }, [taskRunId, addLog, extractPath, onComplete, onError, fetchStatus])
+  }, [taskRunId, addLog, fetchStatus])
 
   // Set mock data when mock mode is enabled
   useEffect(() => {
@@ -297,7 +314,7 @@ export function useWorkflowStream<TResult = unknown>({
         if (event.status === 'completed' && !completedTasksRef.current.has(event.id)) {
           completedTasksRef.current.add(event.id)
           if (event.input) {
-            addLog(`✓ ${extractPath(event.input)}`)
+            addLog(`✓ ${extractPathRef.current(event.input)}`)
           }
         }
       } catch (err) {
@@ -323,13 +340,13 @@ export function useWorkflowStream<TResult = unknown>({
           console.warn('Could not fetch final task statuses')
         }
 
-        if (data.status === 'completed' && data.results && onComplete) {
+        if (data.status === 'completed' && data.results && onCompleteRef.current) {
           const results = Array.isArray(data.results) ? data.results[0] : data.results
           addLog('Workflow completed', 'success')
-          setTimeout(() => onComplete(results as TResult), 300)
-        } else if (data.status === 'failed' && onError) {
+          setTimeout(() => onCompleteRef.current?.(results as TResult), 300)
+        } else if (data.status === 'failed' && onErrorRef.current) {
           addLog('Workflow failed', 'error')
-          onError('Workflow execution failed')
+          onErrorRef.current('Workflow execution failed')
         }
       } catch (err) {
         console.error('Error parsing done event:', err)
@@ -372,9 +389,6 @@ export function useWorkflowStream<TResult = unknown>({
     buildUrl,
     streamUrl,
     addLog,
-    extractPath,
-    onComplete,
-    onError,
     fallbackToPoll,
     finished,
     fetchStatus,
