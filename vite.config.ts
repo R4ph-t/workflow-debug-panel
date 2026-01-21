@@ -27,12 +27,14 @@ export default defineConfig(({ command }) => {
   return {
     plugins: [
       react(),
+      tailwindcss(),
       dts({
         include: ['src'],
         rollupTypes: true,
       }),
     ],
     build: {
+      cssCodeSplit: false,
       lib: {
         entry: resolve(__dirname, 'src/index.ts'),
         name: 'WorkflowDebugPanel',

@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useWorkflowStream } from './hooks/useWorkflowStream'
+import { injectStyles } from './injectStyles'
 import type { TaskRun, WorkflowDebugPanelProps } from './types'
+import styles from './styles.css?inline'
+
+// Inject styles on module load
+injectStyles(styles)
 
 /**
  * A reusable debug panel for monitoring Render Workflows execution.
