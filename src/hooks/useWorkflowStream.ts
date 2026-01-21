@@ -110,6 +110,9 @@ export function useWorkflowStream<TResult = unknown>({
   const connectedRef = useRef(false)
   const stopPollingRef = useRef(false)
   const finishedRef = useRef(false)
+  const hasReceivedDataRef = useRef(false)
+  const sseFallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const statusPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Store all props in refs to avoid effect dependencies
   const statusUrlRef = useRef(statusUrl)
@@ -173,6 +176,7 @@ export function useWorkflowStream<TResult = unknown>({
       connectedRef.current = false
       stopPollingRef.current = false
       finishedRef.current = false
+      hasReceivedDataRef.current = false
     }
   }, [taskRunId, useMock])
 
@@ -221,6 +225,7 @@ export function useWorkflowStream<TResult = unknown>({
     const actualStreamUrl = buildUrl(streamUrlRef.current, currentTaskRunId)
     const eventSource = new EventSource(actualStreamUrl)
     eventSourceRef.current = eventSource
+    const STATUS_POLL_INTERVAL_MS = 3000
 
     /**
      * Fetch status from API (defined inside effect to use current refs)
@@ -234,11 +239,97 @@ export function useWorkflowStream<TResult = unknown>({
       return response.json()
     }
 
+    const stopStatusPolling = () => {
+      if (statusPollIntervalRef.current) {
+        clearInterval(statusPollIntervalRef.current)
+        statusPollIntervalRef.current = null
+      }
+    }
+
+    const stopSseFallbackTimeout = () => {
+      if (sseFallbackTimeoutRef.current) {
+        clearTimeout(sseFallbackTimeoutRef.current)
+        sseFallbackTimeoutRef.current = null
+      }
+    }
+
+    const startStatusPolling = () => {
+      if (statusPollIntervalRef.current) return
+
+      statusPollIntervalRef.current = setInterval(async () => {
+        if (stopPollingRef.current || finishedRef.current) return
+
+        try {
+          const data = await fetchStatus()
+          setStatus(data.status)
+
+          if (data.tasks) {
+            setTasks(data.tasks)
+            for (const t of data.tasks) {
+              if (t.status === 'completed' && !completedTasksRef.current.has(t.id)) {
+                completedTasksRef.current.add(t.id)
+                if (t.input) {
+                  const path = extractPathRef.current(t.input)
+                  setLogs((prev) => {
+                    const time = new Date().toLocaleTimeString('en-US', {
+                      hour12: false,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })
+                    return [{ time, message: `✓ ${path}` }, ...prev].slice(0, 15)
+                  })
+                }
+              }
+            }
+          }
+
+          if (data.status === 'completed' && data.results) {
+            stopPollingRef.current = true
+            finishedRef.current = true
+            setFinished(true)
+            doneLoggedRef.current = true
+            stopStatusPolling()
+            setLogs((prev) => {
+              const time = new Date().toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })
+              return [{ time, message: 'Workflow completed', type: 'success' as const }, ...prev].slice(0, 15)
+            })
+            onCompleteRef.current?.(data.results as TResult)
+          } else if (data.status === 'failed') {
+            stopPollingRef.current = true
+            finishedRef.current = true
+            setFinished(true)
+            doneLoggedRef.current = true
+            stopStatusPolling()
+            setLogs((prev) => {
+              const time = new Date().toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })
+              return [{ time, message: 'Workflow failed', type: 'error' as const }, ...prev].slice(0, 15)
+            })
+            onErrorRef.current?.('Workflow execution failed')
+          }
+        } catch (err) {
+          console.error('Status poll error:', err)
+        }
+      }, STATUS_POLL_INTERVAL_MS)
+    }
+
     /**
      * Fallback to polling when SSE fails
      */
     const fallbackToPoll = () => {
       if (!onCompleteRef.current || !onErrorRef.current) return
+      stopStatusPolling()
+      stopSseFallbackTimeout()
       
       setLogs((prev) => {
         const time = new Date().toLocaleTimeString('en-US', {
@@ -318,10 +409,21 @@ export function useWorkflowStream<TResult = unknown>({
       poll()
     }
 
+    startStatusPolling()
+
     eventSource.addEventListener('connected', () => {
       if (finishedRef.current) return
       setConnected(true)
       connectedRef.current = true
+      // If we connect but never receive any data, fall back to polling.
+      stopSseFallbackTimeout()
+      sseFallbackTimeoutRef.current = setTimeout(() => {
+        if (!hasReceivedDataRef.current && !finishedRef.current) {
+          console.warn('SSE connected but no data received, falling back to polling')
+          eventSource.close()
+          fallbackToPoll()
+        }
+      }, 5000)
       setLogs((prev) => {
         const time = new Date().toLocaleTimeString('en-US', {
           hour12: false,
@@ -336,6 +438,8 @@ export function useWorkflowStream<TResult = unknown>({
     eventSource.addEventListener('initial', (e) => {
       if (finishedRef.current) return
       try {
+        hasReceivedDataRef.current = true
+        stopSseFallbackTimeout()
         const data: SSEInitialEvent = JSON.parse(e.data)
         setStatus(data.status)
         if (data.tasks) {
@@ -356,6 +460,8 @@ export function useWorkflowStream<TResult = unknown>({
     eventSource.addEventListener('taskUpdate', (e) => {
       if (finishedRef.current) return
       try {
+        hasReceivedDataRef.current = true
+        stopSseFallbackTimeout()
         const event: SSETaskUpdateEvent = JSON.parse(e.data)
         setTasks((prev) => {
           const existing = prev.find((t) => t.id === event.id)
@@ -407,11 +513,15 @@ export function useWorkflowStream<TResult = unknown>({
     })
 
     eventSource.addEventListener('done', async (e) => {
+      if (finishedRef.current) return
       // Close IMMEDIATELY to prevent auto-reconnect before async processing
       eventSource.close()
       doneLoggedRef.current = true
       finishedRef.current = true
       setFinished(true)
+      hasReceivedDataRef.current = true
+      stopStatusPolling()
+      stopSseFallbackTimeout()
 
       try {
         const data: SSEDoneEvent<TResult> = JSON.parse(e.data)
@@ -478,7 +588,7 @@ export function useWorkflowStream<TResult = unknown>({
         }
       } catch {
         // This is a connection error, not a server-sent error event
-        if (!connectedRef.current) {
+        if (!connectedRef.current || !hasReceivedDataRef.current) {
           setLogs((prev) => {
             const time = new Date().toLocaleTimeString('en-US', {
               hour12: false,
@@ -499,7 +609,7 @@ export function useWorkflowStream<TResult = unknown>({
       console.warn('SSE connection error')
       // Always close on error to prevent auto-reconnect loop
       eventSource.close()
-      if (!connectedRef.current) {
+      if (!connectedRef.current || !hasReceivedDataRef.current) {
         fallbackToPoll()
       }
     }
@@ -507,6 +617,8 @@ export function useWorkflowStream<TResult = unknown>({
     return () => {
       eventSource.close()
       eventSourceRef.current = null
+      stopStatusPolling()
+      stopSseFallbackTimeout()
     }
   }, [taskRunId, useMock]) // Only depend on taskRunId and useMock
 
