@@ -48,6 +48,13 @@ export interface WorkflowDebugPanelProps<TResult = unknown> {
   taskRunId?: string | null
 
   /**
+   * URL for checking workflow status (tasks, configuration).
+   * If provided, the component will fetch task definitions and workflow status automatically.
+   * @example "/api/status"
+   */
+  statusCheckUrl?: string
+
+  /**
    * URL template for fetching task status.
    * Use {taskRunId} as placeholder for the task run ID.
    * @example "/api/audit/{taskRunId}"

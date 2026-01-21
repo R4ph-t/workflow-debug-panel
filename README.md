@@ -36,15 +36,10 @@ function App() {
   return (
     <WorkflowDebugPanel
       taskRunId={taskRunId}
+      statusCheckUrl={`${API_URL}/status`}
       statusUrl={`${API_URL}/audit/{taskRunId}`}
       streamUrl={`${API_URL}/audit/{taskRunId}/stream`}
       displayName="https://example.com"
-      taskDefinitions={['audit_site', 'crawl_pages', 'analyze_page']}
-      taskDescriptions={{
-        audit_site: 'Entry point (root)',
-        crawl_pages: 'Discovers pages',
-        analyze_page: 'Runs SEO checks',
-      }}
       onComplete={(result) => console.log('Done:', result)}
       onError={(error) => console.error('Error:', error)}
       collapsed={collapsed}
@@ -54,20 +49,23 @@ function App() {
 }
 ```
 
+The component automatically fetches workflow configuration (available tasks, workflow status) from `statusCheckUrl`. You can override any fetched values by passing explicit props.
+
 ## Props
 
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
 | `taskRunId` | `string \| null` | No | The task run ID to monitor. When provided, starts monitoring. |
-| `statusUrl` | `string` | Yes | URL template for status endpoint. Use `{taskRunId}` as placeholder. |
+| `statusCheckUrl` | `string` | No | URL to fetch workflow config (tasks, status). Auto-fetches if provided. |
+| `statusUrl` | `string` | Yes | URL template for task status. Use `{taskRunId}` as placeholder. |
 | `streamUrl` | `string` | Yes | URL template for SSE stream. Use `{taskRunId}` as placeholder. |
 | `title` | `string` | No | Panel header title. Default: `"Workflow Debug"` |
 | `displayName` | `string` | No | Display name shown in timeline (e.g., URL being processed). |
-| `taskDefinitions` | `string[]` | No | List of task names in this workflow. |
+| `taskDefinitions` | `string[]` | No | List of task names. Auto-fetched if `statusCheckUrl` provided. |
 | `taskDescriptions` | `Record<string, string>` | No | Descriptions for each task. |
-| `workflowSlug` | `string \| null` | No | Workflow slug for configuration messages. |
-| `workflowConfigured` | `boolean` | No | Whether workflow is configured. Default: `true` |
-| `apiReachable` | `boolean` | No | Whether API is reachable. Default: `true` |
+| `workflowSlug` | `string \| null` | No | Workflow slug. Auto-fetched if `statusCheckUrl` provided. |
+| `workflowConfigured` | `boolean` | No | Whether workflow is configured. Auto-fetched if `statusCheckUrl` provided. |
+| `apiReachable` | `boolean` | No | Whether API is reachable. Auto-detected if `statusCheckUrl` provided. |
 | `onComplete` | `(result: TResult) => void` | No | Callback when workflow completes. |
 | `onError` | `(message: string) => void` | No | Callback when error occurs. |
 | `collapsed` | `boolean` | No | Whether panel is collapsed. Default: `false` |
@@ -78,9 +76,24 @@ function App() {
 
 ## Backend API Contract
 
-Your backend needs to provide two endpoints that proxy the Render Workflows API:
+Your backend needs to provide these endpoints:
 
-### Status Endpoint
+### Status Check Endpoint (for `statusCheckUrl`)
+
+```
+GET /status
+```
+
+Response:
+```json
+{
+  "workflow_configured": true,
+  "workflow_slug": "my-workflow",
+  "tasks": ["task_one", "task_two", "task_three"]
+}
+```
+
+### Task Status Endpoint (for `statusUrl`)
 
 ```
 GET /your-path/{taskRunId}
@@ -89,7 +102,7 @@ GET /your-path/{taskRunId}
 Response:
 ```json
 {
-  "status": "pending" | "running" | "completed" | "failed",
+  "status": "pending | running | completed | failed",
   "tasks": [
     {
       "id": "trn-xxx",
@@ -104,7 +117,7 @@ Response:
 }
 ```
 
-### SSE Stream Endpoint
+### SSE Stream Endpoint (for `streamUrl`)
 
 ```
 GET /your-path/{taskRunId}/stream

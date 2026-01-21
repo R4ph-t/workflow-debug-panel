@@ -76,6 +76,20 @@ export declare interface TaskRun {
 export declare type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 /**
+ * Hook to fetch workflow status from the status check endpoint.
+ * Returns workflow configuration, available tasks, and API reachability.
+ */
+export declare function useWorkflowStatus(statusCheckUrl: string | undefined): UseWorkflowStatusResult;
+
+declare interface UseWorkflowStatusResult {
+    tasks: string[];
+    workflowSlug: string | null;
+    workflowConfigured: boolean;
+    apiReachable: boolean;
+    loading: boolean;
+}
+
+/**
  * Hook for managing SSE connection and polling fallback for Render Workflows
  */
 export declare function useWorkflowStream<TResult = unknown>({ taskRunId, statusUrl, streamUrl, onComplete, onError, extractPath, useMock, mockTasks, mockLogs, }: UseWorkflowStreamOptions<TResult>): UseWorkflowStreamResult;
@@ -108,7 +122,7 @@ declare interface UseWorkflowStreamResult {
  * Displays real-time task status, timeline visualization, and logs
  * for workflow runs. Connects via SSE with polling fallback.
  */
-export declare function WorkflowDebugPanel<TResult = unknown>({ taskRunId, statusUrl, streamUrl, title, displayName, taskDefinitions, taskDescriptions, workflowSlug, workflowConfigured, apiReachable, onComplete, onError, collapsed, onToggle, useMock, mockTasks, mockLogs, }: WorkflowDebugPanelProps<TResult>): JSX.Element;
+export declare function WorkflowDebugPanel<TResult = unknown>({ taskRunId, statusCheckUrl, statusUrl, streamUrl, title, displayName, taskDefinitions: taskDefinitionsProp, taskDescriptions, workflowSlug: workflowSlugProp, workflowConfigured: workflowConfiguredProp, apiReachable: apiReachableProp, onComplete, onError, collapsed, onToggle, useMock, mockTasks, mockLogs, }: WorkflowDebugPanelProps<TResult>): JSX.Element;
 
 /**
  * Props for the WorkflowDebugPanel component
@@ -118,6 +132,12 @@ export declare interface WorkflowDebugPanelProps<TResult = unknown> {
      * The task run ID to monitor. When provided, the panel starts monitoring.
      */
     taskRunId?: string | null;
+    /**
+     * URL for checking workflow status (tasks, configuration).
+     * If provided, the component will fetch task definitions and workflow status automatically.
+     * @example "/api/status"
+     */
+    statusCheckUrl?: string;
     /**
      * URL template for fetching task status.
      * Use {taskRunId} as placeholder for the task run ID.

@@ -149,6 +149,10 @@ export function App() {
       <div className="text-xs text-neutral-600 space-y-1">
         <p>Switch scenarios above to see different states.</p>
         <p>Check the console for onComplete/onError callbacks.</p>
+        <p className="mt-2 text-neutral-500">
+          Note: This preview uses explicit props for testing. In production, use{" "}
+          <code className="text-neutral-400">statusCheckUrl</code> for automatic status fetching.
+        </p>
       </div>
     </div>
   );

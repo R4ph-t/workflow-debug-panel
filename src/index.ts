@@ -2,6 +2,7 @@
 export { WorkflowDebugPanel } from './WorkflowDebugPanel'
 
 // Hooks
+export { useWorkflowStatus } from './hooks/useWorkflowStatus'
 export { useWorkflowStream } from './hooks/useWorkflowStream'
 
 // Types

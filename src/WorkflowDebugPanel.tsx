@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useWorkflowStatus } from './hooks/useWorkflowStatus'
 import { useWorkflowStream } from './hooks/useWorkflowStream'
 import { injectStyles } from './injectStyles'
 import type { TaskRun, WorkflowDebugPanelProps } from './types'
@@ -15,15 +16,16 @@ injectStyles(styles)
  */
 export function WorkflowDebugPanel<TResult = unknown>({
   taskRunId,
+  statusCheckUrl,
   statusUrl,
   streamUrl,
   title = 'Workflow Debug',
   displayName,
-  taskDefinitions = [],
+  taskDefinitions: taskDefinitionsProp,
   taskDescriptions = {},
-  workflowSlug,
-  workflowConfigured = true,
-  apiReachable = true,
+  workflowSlug: workflowSlugProp,
+  workflowConfigured: workflowConfiguredProp,
+  apiReachable: apiReachableProp,
   onComplete,
   onError,
   collapsed = false,
@@ -34,6 +36,15 @@ export function WorkflowDebugPanel<TResult = unknown>({
 }: WorkflowDebugPanelProps<TResult>) {
   const timelineRef = useRef<HTMLDivElement>(null)
   const startTime = useRef(Date.now())
+
+  // Fetch workflow status if statusCheckUrl is provided
+  const fetchedStatus = useWorkflowStatus(useMock ? undefined : statusCheckUrl)
+
+  // Use props as overrides, fall back to fetched values
+  const taskDefinitions = taskDefinitionsProp ?? fetchedStatus.tasks
+  const workflowSlug = workflowSlugProp ?? fetchedStatus.workflowSlug
+  const workflowConfigured = workflowConfiguredProp ?? fetchedStatus.workflowConfigured
+  const apiReachable = apiReachableProp ?? fetchedStatus.apiReachable
 
   const extractPath = (urlStr: string): string => {
     try {
